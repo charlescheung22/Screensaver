@@ -1,5 +1,10 @@
 # Here I attempt to implement a meta-balls-like screensaver by using the Marching Squares algorithm.
 
+
+# relevant link for drawing circles with transparency:
+# https://stackoverflow.com/questions/6339057/draw-a-transparent-rectangles-and-polygons-in-pygame
+
+
 import pygame
 import random
 
@@ -16,7 +21,7 @@ debug_draw_grid = True
 debug_draw_circles = True
 
 
-class Circle(pygame.sprite.Sprite):
+class SpriteCircle(pygame.sprite.Sprite):
     def __init__(self, position: tuple[int, int] | pygame.Vector2, radius: int,
                  direction: tuple[int, int] | pygame.Vector2, color: tuple[int, int, int]) -> None:
         """
@@ -27,8 +32,7 @@ class Circle(pygame.sprite.Sprite):
         :param direction: A tuple pair of coordinates, which will be converted to a vector.
         :param color: Color of the circle.
         """
-        pygame.sprite.Sprite.__init__(self)  # or just super().__init__()
-
+        super().__init__()
         self.position = pygame.Vector2(position)
         self.radius = radius
         self.direction = pygame.Vector2(direction)
@@ -46,6 +50,86 @@ class Circle(pygame.sprite.Sprite):
         pass
 
 
+class SpriteGridCircle(pygame.sprite.Sprite):
+    def __init__(self, position: tuple[int, int] | pygame.Vector2, radius: int,
+                 color: tuple[int, int, int] | tuple[int, int, int, int]) -> None:
+        """
+        Circle class constructor.
+
+        :param position: A tuple pair of coordinates, which will be converted to a vector.
+        :param radius: Radius of the circle.
+        :param color: Color of the circle.
+        """
+        super().__init__()
+
+        self.position = pygame.Vector2(position)
+        self.radius = radius
+        self.color = pygame.Color(color)
+
+        self.image = pygame.Surface((self.radius * 2, self.radius * 2))
+        self.image.set_colorkey((0, 0, 0))
+        self.image.set_alpha(self.color.a)
+        self.image.fill((0, 0, 0))
+        pygame.draw.circle(self.image, self.color, self.position, self.radius)
+
+        self.rect = self.image.get_rect(center=self.position)
+
+    def update(self) -> None:
+        pass
+
+
+class GroupCircles(pygame.sprite.Group):
+    def __init__(self, *sprites: SpriteCircle) -> None:
+        """
+        GroupCircles class constructor.
+
+        :param sprites: A list of SpriteCircle objects.
+        """
+        super().__init__(self, *sprites)
+
+    def update(self) -> None:
+        """
+        Update all the circles in the group.
+        """
+        for sprite in self.sprites():
+            sprite.update()
+
+
+class GroupContours(pygame.sprite.Group):
+    def __init__(self, *sprites: SpriteCircle) -> None:
+        """
+        GroupContours class constructor.
+
+        :param sprites: A list of SpriteCircle objects.
+        """
+        super().__init__(self, *sprites)
+
+    def update(self) -> None:
+        """
+        Update all the contours in the group.
+        """
+        for sprite in self.sprites():
+            sprite.update()
+
+
+class GroupGridCircles(pygame.sprite.RenderPlain):
+    def __init__(self, *sprites: SpriteCircle) -> None:
+        """
+        GroupGridCircles class constructor.
+
+        :param sprites: A list of SpriteCircle objects.
+        """
+        super().__init__(self, *sprites)
+
+    def update(self) -> None:
+        """
+        Update all the grid circles in the group.
+        """
+        for sprite in self.sprites():
+            sprite.update()
+
+
+
 def main():
     # Initialize pygame and some other stuff
     pygame.init()
@@ -57,14 +141,22 @@ def main():
     running = True
 
     # Use the group and sprite functionality of pygame
-    group_circles = pygame.sprite.Group()
+    group_circles = GroupCircles()
+    group_grid_circles = GroupGridCircles()
+    group_contours = GroupContours()
 
-    # set up some grid stuff
-    grid: list[list[float]] = []
-    for x in range(SCREEN_WIDTH // RESOLUTION):
-        grid.append([])
-        for y in range(SCREEN_HEIGHT // RESOLUTION):
-            grid[x].append(random.random())  # a float between 0 and 1
+
+    # set up a basic example grid of random values
+    for x in range(SCREEN_WIDTH // RESOLUTION + 1):
+        for y in range(SCREEN_HEIGHT // RESOLUTION + 1):
+            # create a circle at the center of each grid cell
+            grid_circle = SpriteGridCircle((x * RESOLUTION, y * RESOLUTION), RESOLUTION // 5, (255, 255, 255, int(255 * random.random())))
+            grid_circle.add(group_grid_circles)
+    # grid: list[list[float]] = []
+    # for x in range(SCREEN_WIDTH // RESOLUTION + 1):
+    #     grid.append([])
+    #     for y in range(SCREEN_HEIGHT // RESOLUTION + 1):
+    #         grid[x].append(random.random())  # a float between 0 and 1
 
     while running:
         for event in pygame.event.get():
@@ -76,12 +168,7 @@ def main():
         screen.fill(BACKGROUND_COLOR)
 
         if debug_draw_grid:
-            for x in range(SCREEN_WIDTH // RESOLUTION):
-                for y in range(SCREEN_HEIGHT // RESOLUTION):
-                    # use the grid value as a transparency value (alpha in RGBa)
-                    temp = pygame.Color(255, 255, 255, int(255 * grid[x][y]))
-                    pygame.draw.circle(screen, temp,
-                                       (x * RESOLUTION, y * RESOLUTION), RESOLUTION // 5)
+            group_grid_circles.draw(screen)
 
         if debug_draw_circles:
             group_circles.draw(screen)
